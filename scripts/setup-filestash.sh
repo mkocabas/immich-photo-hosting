@@ -62,7 +62,7 @@ echo "[5/6] Downloading official Filestash docker-compose and configuring..."
 curl -O https://downloads.filestash.app/latest/docker-compose.yml
 
 # Add admin password environment variable to the filestash service
-sed -i '/image: machines\/filestash/a\    environment:\n      - ADMIN_PASSWORD='"${ADMIN_PASSWORD}"'' docker-compose.yml
+# sed -i '/image: machines\/filestash/a\    environment:\n      - ADMIN_PASSWORD='"${ADMIN_PASSWORD}"'' docker-compose.yml
 
 # Create Caddyfile for reverse proxy
 cat > Caddyfile << 'CADDY_EOF'
