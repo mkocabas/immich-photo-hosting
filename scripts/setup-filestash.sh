@@ -5,6 +5,8 @@
 # Run this script on a fresh Ubuntu 22.04 server
 # Usage: curl -sSL <raw-url> | bash
 #    or: ./setup-filestash.sh
+#
+# Safe to re-run - will clean up and reinstall
 
 set -e
 
@@ -23,11 +25,11 @@ if [[ $EUID -ne 0 ]]; then
 fi
 
 echo ""
-echo "[1/5] Updating system packages..."
+echo "[1/6] Updating system packages..."
 apt update && apt upgrade -y
 
 echo ""
-echo "[2/5] Installing Docker..."
+echo "[2/6] Installing Docker..."
 if ! command -v docker &> /dev/null; then
     curl -fsSL https://get.docker.com | sh
     systemctl enable docker
@@ -37,12 +39,23 @@ else
 fi
 
 echo ""
-echo "[3/5] Creating directory structure..."
+echo "[3/6] Cleaning up previous installation (if any)..."
+if [[ -d "${INSTALL_DIR}" ]] && [[ -f "${INSTALL_DIR}/docker-compose.yml" ]]; then
+    cd ${INSTALL_DIR}
+    docker compose down -v 2>/dev/null || true
+    rm -rf ${INSTALL_DIR}/*
+    echo "Previous installation cleaned up"
+else
+    echo "No previous installation found"
+fi
+
+echo ""
+echo "[4/6] Creating directory structure..."
 mkdir -p ${INSTALL_DIR}
 cd ${INSTALL_DIR}
 
 echo ""
-echo "[4/5] Creating configuration files..."
+echo "[5/6] Creating configuration files..."
 
 # Create docker-compose.yml
 cat > docker-compose.yml << 'COMPOSE_EOF'
@@ -53,8 +66,6 @@ services:
     restart: unless-stopped
     ports:
       - "8334:8334"
-    environment:
-      - APPLICATION_URL=https://upload.kiliclar.photos
     volumes:
       - filestash-data:/app/data/state
     networks:
@@ -106,9 +117,12 @@ upload.kiliclar.photos {
 CADDY_EOF
 
 echo ""
-echo "[5/5] Starting services..."
+echo "[6/6] Starting services..."
 docker compose pull
 docker compose up -d
+
+# Wait for services to start
+sleep 3
 
 echo ""
 echo "=========================================="
@@ -118,14 +132,20 @@ echo ""
 echo "Service status:"
 docker compose ps
 echo ""
-echo "Next steps:"
-echo "1. Wait for DNS propagation (check: dig ${DOMAIN})"
-echo "2. Access https://${DOMAIN}"
-echo "3. Configure Filestash to connect to Backblaze B2"
+echo "Access your upload portal at:"
+echo "  https://${DOMAIN}"
+echo ""
+echo "First-time setup:"
+echo "  1. Open https://${DOMAIN}"
+echo "  2. Select 'htpasswd' for authentication"
+echo "  3. Set username/password for your group"
+echo "  4. Select 'S3' as backend"
+echo "  5. Configure B2 credentials (see docs/deployment-guide.md)"
 echo ""
 echo "Useful commands:"
-echo "  View logs:     docker compose logs -f"
-echo "  Restart:       docker compose restart"
-echo "  Stop:          docker compose down"
-echo "  Update:        docker compose pull && docker compose up -d"
+echo "  View logs:     cd ${INSTALL_DIR} && docker compose logs -f"
+echo "  Restart:       cd ${INSTALL_DIR} && docker compose restart"
+echo "  Stop:          cd ${INSTALL_DIR} && docker compose down"
+echo "  Update:        cd ${INSTALL_DIR} && docker compose pull && docker compose up -d"
+echo "  Re-run setup:  Re-run this script (safe to re-run)"
 echo ""
