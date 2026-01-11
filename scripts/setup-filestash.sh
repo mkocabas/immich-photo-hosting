@@ -17,6 +17,7 @@ echo "=========================================="
 # Configuration
 INSTALL_DIR="/opt/filestash"
 DOMAIN="upload.kiliclar.photos"
+ADMIN_PASSWORD="${ADMIN_PASSWORD:-kiliclar2024}"
 
 # Check if running as root
 if [[ $EUID -ne 0 ]]; then
@@ -55,52 +56,18 @@ mkdir -p ${INSTALL_DIR}
 cd ${INSTALL_DIR}
 
 echo ""
-echo "[5/6] Creating configuration files..."
+echo "[5/6] Downloading official Filestash docker-compose and configuring..."
 
-# Create docker-compose.yml
-cat > docker-compose.yml << 'COMPOSE_EOF'
-services:
-  filestash:
-    image: machines/filestash:latest
-    container_name: filestash
-    restart: unless-stopped
-    ports:
-      - "8334:8334"
-    volumes:
-      - filestash-data:/app/data/state
-    networks:
-      - filestash-network
+# Download official docker-compose.yml
+curl -O https://downloads.filestash.app/latest/docker-compose.yml
 
-  caddy:
-    image: caddy:2-alpine
-    container_name: filestash-caddy
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy-data:/data
-      - caddy-config:/config
-    networks:
-      - filestash-network
-    depends_on:
-      - filestash
+# Add admin password environment variable to the filestash service
+sed -i '/image: machines\/filestash/a\    environment:\n      - ADMIN_PASSWORD='"${ADMIN_PASSWORD}"'' docker-compose.yml
 
-networks:
-  filestash-network:
-    driver: bridge
-
-volumes:
-  filestash-data:
-  caddy-data:
-  caddy-config:
-COMPOSE_EOF
-
-# Create Caddyfile
+# Create Caddyfile for reverse proxy
 cat > Caddyfile << 'CADDY_EOF'
 upload.kiliclar.photos {
-    reverse_proxy filestash:8334
+    reverse_proxy localhost:8334
 
     # Security headers
     header {
@@ -116,10 +83,24 @@ upload.kiliclar.photos {
 }
 CADDY_EOF
 
+# Install Caddy for HTTPS
+echo "Installing Caddy..."
+apt install -y debian-keyring debian-archive-keyring apt-transport-https
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list
+apt update
+apt install -y caddy
+
+# Copy Caddyfile to Caddy config location
+cp Caddyfile /etc/caddy/Caddyfile
+
 echo ""
 echo "[6/6] Starting services..."
 docker compose pull
 docker compose up -d
+
+# Restart Caddy with new config
+systemctl restart caddy
 
 # Wait for services to start
 sleep 3
@@ -132,20 +113,26 @@ echo ""
 echo "Service status:"
 docker compose ps
 echo ""
+echo "Caddy status:"
+systemctl status caddy --no-pager | head -5
+echo ""
 echo "Access your upload portal at:"
 echo "  https://${DOMAIN}"
 echo ""
-echo "First-time setup:"
-echo "  1. Open https://${DOMAIN}"
-echo "  2. Select 'htpasswd' for authentication"
-echo "  3. Set username/password for your group"
-echo "  4. Select 'S3' as backend"
-echo "  5. Configure B2 credentials (see docs/deployment-guide.md)"
+echo "Admin panel:"
+echo "  https://${DOMAIN}/admin"
+echo "  Password: ${ADMIN_PASSWORD}"
+echo ""
+echo "First-time admin setup:"
+echo "  1. Open https://${DOMAIN}/admin"
+echo "  2. Enter admin password: ${ADMIN_PASSWORD}"
+echo "  3. Configure backend (S3) with B2 credentials"
+echo "  4. Configure authentication (htpasswd)"
 echo ""
 echo "Useful commands:"
-echo "  View logs:     cd ${INSTALL_DIR} && docker compose logs -f"
-echo "  Restart:       cd ${INSTALL_DIR} && docker compose restart"
-echo "  Stop:          cd ${INSTALL_DIR} && docker compose down"
-echo "  Update:        cd ${INSTALL_DIR} && docker compose pull && docker compose up -d"
-echo "  Re-run setup:  Re-run this script (safe to re-run)"
+echo "  View logs:        cd ${INSTALL_DIR} && docker compose logs -f"
+echo "  Restart docker:   cd ${INSTALL_DIR} && docker compose restart"
+echo "  Restart caddy:    systemctl restart caddy"
+echo "  Stop:             cd ${INSTALL_DIR} && docker compose down"
+echo "  Update:           cd ${INSTALL_DIR} && docker compose pull && docker compose up -d"
 echo ""
