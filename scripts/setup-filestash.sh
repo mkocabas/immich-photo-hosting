@@ -46,8 +46,6 @@ echo "[4/5] Creating configuration files..."
 
 # Create docker-compose.yml
 cat > docker-compose.yml << 'COMPOSE_EOF'
-version: "3.8"
-
 services:
   filestash:
     image: machines/filestash:latest
