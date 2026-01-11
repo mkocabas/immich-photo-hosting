@@ -1,0 +1,40 @@
+version: "3.8"
+
+services:
+  filestash:
+    image: machines/filestash:latest
+    container_name: filestash
+    restart: unless-stopped
+    ports:
+      - "8334:8334"
+    environment:
+      - APPLICATION_URL=https://upload.kiliclar.photos
+    volumes:
+      - filestash-data:/app/data/state
+    networks:
+      - filestash-network
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: filestash-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - filestash-network
+    depends_on:
+      - filestash
+
+networks:
+  filestash-network:
+    driver: bridge
+
+volumes:
+  filestash-data:
+  caddy-data:
+  caddy-config:

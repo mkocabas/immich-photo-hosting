@@ -1,0 +1,30 @@
+# Immich Photo Server
+# Caddy automatically handles HTTPS via Let's Encrypt
+
+photos.kiliclar.photos {
+    reverse_proxy immich-server:2283
+
+    # Security headers
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options SAMEORIGIN
+        Referrer-Policy strict-origin-when-cross-origin
+        -Server
+    }
+
+    # Handle large photo/video uploads
+    request_body {
+        max_size 50GB
+    }
+
+    # Enable compression
+    encode gzip zstd
+
+    # Logging
+    log {
+        output file /data/access.log {
+            roll_size 10mb
+            roll_keep 5
+        }
+    }
+}

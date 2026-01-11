@@ -1,0 +1,11 @@
+[Unit]
+Description=Immich Database Backup Service
+Wants=immich-backup.timer
+
+[Service]
+Type=oneshot
+ExecStart=/opt/immich/scripts/backup-db.sh
+User=root
+
+[Install]
+WantedBy=multi-user.target

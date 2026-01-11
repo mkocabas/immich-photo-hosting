@@ -1,0 +1,38 @@
+[Unit]
+Description=rclone mount for Backblaze B2 (Kiliclar Photos)
+Documentation=https://rclone.org/docs/
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+ExecStart=/usr/bin/rclone mount kiliclar-b2:kiliclar-photos-library /mnt/photos \
+    --config /root/.config/rclone/rclone.conf \
+    --vfs-cache-mode full \
+    --vfs-cache-max-size 100G \
+    --vfs-cache-max-age 168h \
+    --vfs-read-ahead 128M \
+    --cache-dir /var/cache/rclone \
+    --dir-cache-time 5m \
+    --poll-interval 1m \
+    --buffer-size 256M \
+    --transfers 8 \
+    --checkers 8 \
+    --allow-other \
+    --uid 1000 \
+    --gid 1000 \
+    --umask 002 \
+    --log-level INFO \
+    --log-file /var/log/rclone-mount.log
+
+ExecStop=/bin/fusermount -uz /mnt/photos
+Restart=on-failure
+RestartSec=10
+
+# Security
+PrivateTmp=true
+ProtectSystem=full
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

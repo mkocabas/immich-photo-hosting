@@ -1,0 +1,18 @@
+# Filestash Upload Portal
+# Caddy automatically handles HTTPS via Let's Encrypt
+
+upload.kiliclar.photos {
+    reverse_proxy filestash:8334
+
+    # Security headers
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy strict-origin-when-cross-origin
+    }
+
+    # Increase upload limits for large photo batches
+    request_body {
+        max_size 10GB
+    }
+}
